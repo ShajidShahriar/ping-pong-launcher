@@ -34,12 +34,15 @@ class WheelController:
         serial: SerialController,
         *,
         base_pwm: int = 140,
+        upper_pwm: int | None = None,
+        lower_pwm: int | None = None,
         max_pwm: int = 255,
         preset: str = "flat",
     ) -> None:
-        self.serial   = serial
-        self.base_pwm = base_pwm
-        self.max_pwm  = max_pwm
+        self.serial = serial
+        self.upper_base_pwm = upper_pwm if upper_pwm is not None else base_pwm
+        self.lower_base_pwm = lower_pwm if lower_pwm is not None else base_pwm
+        self.max_pwm = max_pwm
         self.set_spin(preset)
 
     # ------------------------------------------------------------------
@@ -50,15 +53,20 @@ class WheelController:
             raise ValueError(f"Unknown spin preset: {preset}")
         self._preset = _PRESETS[preset]
 
+    def set_base_pwms(self, upper_pwm: int, lower_pwm: int) -> None:
+        """Set the base PWM values for the upper and lower wheels."""
+        self.upper_base_pwm = upper_pwm
+        self.lower_base_pwm = lower_pwm
+
     def fire(self) -> None:
         up_mult, low_mult = self._preset.ratio
-        up_pwm  = min(int(self.base_pwm * up_mult),  self.max_pwm)
-        low_pwm = min(int(self.base_pwm * low_mult), self.max_pwm)
+        up_pwm  = min(int(self.upper_base_pwm * up_mult),  self.max_pwm)
+        low_pwm = min(int(self.lower_base_pwm * low_mult), self.max_pwm)
         self.serial.write_raw(f"W,{up_pwm},{low_pwm}\n")
 
     def current_pwms(self) -> Tuple[int, int]:
         up_mult, low_mult = self._preset.ratio
         return (
-            min(int(self.base_pwm * up_mult),  self.max_pwm),
-            min(int(self.base_pwm * low_mult), self.max_pwm),
+            min(int(self.upper_base_pwm * up_mult),  self.max_pwm),
+            min(int(self.lower_base_pwm * low_mult), self.max_pwm),
         )
