@@ -18,7 +18,9 @@ import cv2
 from pose_tracker import PoseTracker
 from servo_aim import ServoAimer, Mode
 from serial_controller import SerialController
+from gate_controller import GateController
 from utils import pad_square
+from collections import deque
 
 # ------------------------------------------------ Argument flag
 parser = argparse.ArgumentParser()
@@ -42,6 +44,7 @@ def main() -> None:
     if args.spin:
         from wheel_controller import WheelController  # local import keeps deps optional
         wheels = WheelController(ser, preset="flat")
+        gate = GateController(ser)
 
     cap = cv2.VideoCapture(WEBCAM_INDEX)
     if not cap.isOpened():
@@ -56,6 +59,7 @@ def main() -> None:
 
     tracker = PoseTracker()
     aimer   = ServoAimer(mode=Mode.FOLLOW)
+    angle_buffer = deque(maxlen=5)
 
     print("[Main] q=quit  m=mode", end="")
     if args.spin:
@@ -76,6 +80,7 @@ def main() -> None:
         waist_x = waist_xy[0] if waist_xy else None
         angle   = aimer.update(waist_x, w)
         ser.write_angle(angle)
+        angle_buffer.append(angle)
 
         aimer.draw_arrow(annotated, w // 2, h - 40)
 
@@ -107,7 +112,14 @@ def main() -> None:
             elif key == ord("f"):
                 wheels.set_spin("flat");     print("[Main] Flat shot armed")
             elif key == ord(" "):
-                wheels.fire();               print("[Main] FIRE!")
+                if len(angle_buffer) == angle_buffer.maxlen and len(set(angle_buffer)) == 1:
+                    wheels.fire()
+                    gate.open()
+                    time.sleep(0.3)
+                    gate.close()
+                    print("[Main] FIRE!")
+                else:
+                    print("[Main] Hold steady to fire")
 
     # tidy-up
     cap.release(); cv2.destroyAllWindows()
