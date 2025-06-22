@@ -29,6 +29,7 @@ class LauncherGUI:
     def __init__(self, *, port: str = "COM5", mock_serial: bool = True) -> None:
         self.root = tk.Tk()
         self.root.title("Ping-Pong Launcher")
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self.serial = SerialController(port, mock=mock_serial)
         self.serial.connect()
@@ -103,6 +104,11 @@ class LauncherGUI:
         if self.loop_thread:
             self.loop_thread.join(timeout=1.0)
             self.loop_thread = None
+
+    def _on_close(self) -> None:
+        """Handle the window close button."""
+        self.stop()
+        self.root.destroy()
 
     # ------------------------------------------------------------------
     # Main processing loop
