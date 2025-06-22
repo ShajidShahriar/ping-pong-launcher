@@ -1,14 +1,35 @@
 """
-Simple Tkinter GUI for the ping-pong launcher.
+from utils import pad_square, find_camera_index
 
-Start = begin pose tracking / angle streaming
-Stop  = halt video thread and release the webcam
-Follow / Random = aim modes
-Flat / Top Spin / Back Spin = wheel presets
-"""
+        self.mode_var = tk.StringVar(value=self.aimer.mode)
+        self.spin_var = tk.StringVar(value=self.wheels._preset.name)
+        self.angle_var = tk.IntVar(value=0)
 
-from __future__ import annotations
+        ttk.Label(frame, textvariable=self.angle_var).grid(row=0, column=2, padx=5)
+        follow_btn = ttk.Button(frame, text="Follow", command=lambda: self._set_mode(Mode.FOLLOW))
+        random_btn = ttk.Button(frame, text="Random", command=lambda: self._set_mode(Mode.RANDOM))
+        ttk.Label(frame, textvariable=self.mode_var).grid(row=1, column=2, padx=5)
+        ttk.Button(frame, text="Flat", command=lambda: self._set_spin("flat")).grid(row=2, column=0, padx=5, pady=5)
+        ttk.Button(frame, text="Top Spin", command=lambda: self._set_spin("topspin")).grid(row=2, column=1, padx=5, pady=5)
+        ttk.Button(frame, text="Back Spin", command=lambda: self._set_spin("backspin")).grid(row=2, column=2, padx=5, pady=5)
+        ttk.Label(frame, textvariable=self.spin_var).grid(row=2, column=3, padx=5)
 
+    def _set_mode(self, mode: str) -> None:
+        self.aimer.set_mode(mode)
+        self.mode_var.set(mode)
+
+    def _set_spin(self, preset: str) -> None:
+        self.wheels.set_spin(preset)
+        self.spin_var.set(preset)
+
+        cam_idx = find_camera_index() or 0
+        self.cap = cv2.VideoCapture(cam_idx)
+        print(f"[GUI] Using camera {cam_idx}")
+
+            self.angle_var.set(angle)
+            cv2.putText(annotated, f"Mode:{self.aimer.mode}", (10,25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,0), 2)
+            cv2.putText(annotated, f"Spin:{self.wheels._preset.name}", (10,50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,0), 2)
+            cv2.putText(annotated, f"Ang:{angle}", (10,75), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,0), 2)
 import threading
 import time
 import tkinter as tk

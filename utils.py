@@ -17,6 +17,7 @@ __all__ = [
     "map_value",
     "map_to_servo_angle",
     "calculate_servo_point",
+    "find_camera_index",
 ]
 
 
@@ -79,6 +80,17 @@ def calculate_servo_point(base_x: int, base_y: int, angle_deg: float, length: in
     end_x = int(base_x + length * math.cos(rad))
     end_y = int(base_y - length * math.sin(rad))  # minus because image Y grows downward
     return end_x, end_y
+
+
+def find_camera_index(max_index: int = 4) -> int | None:
+    """Return the first working camera index or ``None`` if none found."""
+    for idx in range(max_index):
+        cap = cv2.VideoCapture(idx)
+        if cap.isOpened():
+            cap.release()
+            return idx
+        cap.release()
+    return None
 
 
 # ----------------------------------------------------------------------
