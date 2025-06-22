@@ -20,7 +20,7 @@ from pose_tracker import PoseTracker
 from servo_aim import ServoAimer, Mode
 from serial_controller import SerialController
 from gate_controller import GateController
-from utils import pad_square
+from utils import pad_square, find_camera_index
 from collections import deque
 
 # ------------------------------------------------ Argument flag
@@ -38,7 +38,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 # ------------------------------------------------ Config
-WEBCAM_INDEX = 1
+WEBCAM_INDEX = find_camera_index() or 0
 FRAME_W, FRAME_H, FPS = 640, 480, 30
 ARDUINO_PORT = "COM5"
 MOCK_SERIAL  = True
@@ -65,6 +65,7 @@ def main() -> None:
     if not cap.isOpened():
         print("[Main] Cannot open camera.")
         return
+    print(f"[Main] Using camera {WEBCAM_INDEX}")
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,  FRAME_W)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_H)
     cap.set(cv2.CAP_PROP_FPS, FPS)
@@ -107,6 +108,9 @@ def main() -> None:
                     cv2.FONT_HERSHEY_SIMPLEX, .7, (255, 255, 0), 2)
         cv2.putText(annotated, f"Mode:{aimer.mode}", (10, 75),
                     cv2.FONT_HERSHEY_SIMPLEX, .7, (200, 255, 0), 2)
+        if args.spin:
+            cv2.putText(annotated, f"Spin:{wheels._preset.name}", (10, 100),
+                        cv2.FONT_HERSHEY_SIMPLEX, .7, (200, 255, 0), 2)
 
         cv2.imshow(WINDOW_NAME, annotated)
         key = cv2.waitKey(1) & 0xFF
