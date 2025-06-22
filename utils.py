@@ -18,6 +18,7 @@ __all__ = [
     "map_to_servo_angle",
     "calculate_servo_point",
     "find_camera_index",
+    "find_serial_port",
 ]
 
 
@@ -90,6 +91,29 @@ def find_camera_index(max_index: int = 4) -> int | None:
             cap.release()
             return idx
         cap.release()
+    return None
+
+
+def find_serial_port(keyword: str = "Arduino") -> str | None:
+    """Return the first serial port whose description contains *keyword*.
+
+    Uses :func:`serial.tools.list_ports.comports` to scan connected serial
+    devices and returns the ``device`` value for the first port whose
+    ``description`` includes ``keyword`` (case-insensitive).  Returns ``None``
+    if no matching port is found.
+    """
+    try:
+        from serial.tools.list_ports import comports
+    except Exception:
+        return None
+
+    for info in comports():
+        try:
+            if keyword.lower() in info.description.lower():
+                return info.device
+        except Exception:
+            # Info objects may lack attributes depending on platform
+            continue
     return None
 
 
