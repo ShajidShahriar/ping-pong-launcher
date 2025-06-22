@@ -10,6 +10,7 @@ t / b / f : topspin / backspin / flat shot presets  [only with --spin]
 Run without flags for plain tracking + servo.
 Add --spin to enable wheel controls.
 Use --gui  to start the Tkinter interface instead of the CLI demo.
+Use --port to specify the Arduino serial port.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from pose_tracker import PoseTracker
 from servo_aim import ServoAimer, Mode
 from serial_controller import SerialController
 from gate_controller import GateController
-from utils import pad_square, find_camera_index
+from utils import pad_square, find_camera_index, find_serial_port
 from collections import deque
 
 # ------------------------------------------------ Argument flag
@@ -35,12 +36,16 @@ parser.add_argument(
     action="store_true",
     help="launch the Tkinter GUI",
 )
+parser.add_argument(
+    "--port",
+    help="Arduino serial port; auto-detect if omitted",
+)
 args = parser.parse_args()
 
 # ------------------------------------------------ Config
 WEBCAM_INDEX = find_camera_index() or 0
 FRAME_W, FRAME_H, FPS = 640, 480, 30
-ARDUINO_PORT = "COM5"
+ARDUINO_PORT = args.port or find_serial_port() or "COM5"
 MOCK_SERIAL  = True
 WINDOW_NAME  = "Ping-Pong Servo Aimer"
 

@@ -21,7 +21,7 @@ from servo_aim import ServoAimer, Mode
 from serial_controller import SerialController
 from gate_controller import GateController
 from wheel_controller import WheelController
-from utils import pad_square, find_camera_index
+from utils import pad_square, find_camera_index, find_serial_port
 
 
 class LauncherGUI:
@@ -30,7 +30,7 @@ class LauncherGUI:
     def __init__(
         self,
         *,
-        port: str = "COM5",
+        port: str | None = None,
         mock_serial: bool = True,
         cam_index: int | None = 1,          # None → auto-detect
     ) -> None:
@@ -40,6 +40,8 @@ class LauncherGUI:
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
         # -------- back-end objects ------
+        if port is None:
+            port = find_serial_port() or "COM5"
         self.serial = SerialController(port, mock=mock_serial)
         self.serial.connect()
 
@@ -212,7 +214,16 @@ class LauncherGUI:
 
 # Convenience entry-point
 def main() -> None:
-    LauncherGUI().run()
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--port",
+        help="Arduino serial port; auto-detect if omitted",
+    )
+    args = parser.parse_args()
+
+    LauncherGUI(port=args.port).run()
 
 
 if __name__ == "__main__":
