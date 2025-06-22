@@ -1,65 +1,117 @@
-# main.py
+"""
+main.py
+=======
 
+q         : quit
+m         : toggle aim FOLLOW/RANDOM
+(space)   : launch ball          [only when --spin flag is used]
+t / b / f : topspin / backspin / flat shot presets  [only with --spin]
+
+Run without flags for plain tracking + servo.
+Add --spin to enable wheel controls.
+"""
+
+from __future__ import annotations
+import argparse, time
 import cv2
-import logging
-from utils import make_square, calculate_servo_point
-from serial_controller import SerialController
+
 from pose_tracker import PoseTracker
-from servo_aim import ServoAimer
+from servo_aim import ServoAimer, Mode
+from serial_controller import SerialController
+from utils import pad_square
 
-def main():
-    logging.basicConfig(level=logging.DEBUG,
-                        format="%(asctime)s %(name)s %(levelname)s: %(message)s")
-    # Choose mock=True for unit tests
-    serial_ctrl = SerialController(port="COM5", mock=False)
-    if not serial_ctrl.connect():
+# ------------------------------------------------ Argument flag
+parser = argparse.ArgumentParser()
+parser.add_argument("--spin", action="store_true",
+                    help="enable dual-wheel spin control (top/back/flat)")
+args = parser.parse_args()
+
+# ------------------------------------------------ Config
+WEBCAM_INDEX = 1
+FRAME_W, FRAME_H, FPS = 640, 480, 30
+ARDUINO_PORT = "COM5"
+MOCK_SERIAL  = True
+WINDOW_NAME  = "Ping-Pong Servo Aimer"
+
+# ------------------------------------------------ Main
+def main() -> None:
+    ser = SerialController(ARDUINO_PORT, mock=MOCK_SERIAL)
+    ser.connect()
+
+    # optional wheel controller
+    if args.spin:
+        from wheel_controller import WheelController  # local import keeps deps optional
+        wheels = WheelController(ser, preset="flat")
+
+    cap = cv2.VideoCapture(WEBCAM_INDEX)
+    if not cap.isOpened():
+        print("[Main] Cannot open camera.")
         return
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH,  FRAME_W)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_H)
+    cap.set(cv2.CAP_PROP_FPS, FPS)
 
-    cap = cv2.VideoCapture(0)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    cap.set(cv2.CAP_PROP_FPS, 30)
+    cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(WINDOW_NAME, FRAME_W, FRAME_W)
+
     tracker = PoseTracker()
-    ret, frame = cap.read()
-    if not ret:
-        logging.error("Camera failure")
-        return
+    aimer   = ServoAimer(mode=Mode.FOLLOW)
 
-    width = max(frame.shape[:2])
-    aimer = ServoAimer(width=width)
+    print("[Main] q=quit  m=mode", end="")
+    if args.spin:
+        print("  t/b/f=spin  space=fire")
+    else:
+        print("  (run with --spin to enable wheel control)")
 
-    try:
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
+    prev = time.time()
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
 
-            frame = make_square(frame)
-            result = tracker.process_frame(frame)
-            if result:
-                wx, wy = result
-                angle = aimer.update(wx)
-                serial_ctrl.write(f"{angle}\n")
-                # visualize
-                ex, ey = calculate_servo_point(width//2, width - 50, angle)
-                cv2.circle(frame, (wx, wy), 5, (0,0,255), -1)
-                cv2.arrowedLine(frame, (width//2, width-50), (ex, ey), (0,255,0), 5)
-                cv2.putText(frame, f"Angle: {angle}", (10, 30), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2)
-            else:
-                cv2.putText(frame, "No player detected", (10, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+        frame = pad_square(frame)
+        h, w = frame.shape[:2]
 
-            cv2.imshow("Aimer", frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+        waist_xy, annotated = tracker.process(frame)
+        waist_x = waist_xy[0] if waist_xy else None
+        angle   = aimer.update(waist_x, w)
+        ser.write_angle(angle)
 
-    finally:
-        cap.release()
-        cv2.destroyAllWindows()
-        tracker.close()
-        serial_ctrl.close()
+        aimer.draw_arrow(annotated, w // 2, h - 40)
+
+        # HUD
+        fps = 1 / (time.time() - prev); prev = time.time()
+        cv2.putText(annotated, f"Aim:{angle}", (10, 25),
+                    cv2.FONT_HERSHEY_SIMPLEX, .7, (255, 255, 0), 2)
+        cv2.putText(annotated, f"FPS:{int(fps)}", (10, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, .7, (255, 255, 0), 2)
+        cv2.putText(annotated, f"Mode:{aimer.mode}", (10, 75),
+                    cv2.FONT_HERSHEY_SIMPLEX, .7, (200, 255, 0), 2)
+
+        cv2.imshow(WINDOW_NAME, annotated)
+        key = cv2.waitKey(1) & 0xFF
+
+        if   key == ord("q"):
+            break
+        elif key == ord("m"):
+            new = Mode.RANDOM if aimer.mode == Mode.FOLLOW else Mode.FOLLOW
+            aimer.set_mode(new)
+            print("[Main] Aim :", new)
+
+        # ---------------- wheel hotkeys (only active with --spin)
+        elif args.spin:
+            if   key == ord("t"):
+                wheels.set_spin("topspin");  print("[Main] Topspin armed")
+            elif key == ord("b"):
+                wheels.set_spin("backspin"); print("[Main] Backspin armed")
+            elif key == ord("f"):
+                wheels.set_spin("flat");     print("[Main] Flat shot armed")
+            elif key == ord(" "):
+                wheels.fire();               print("[Main] FIRE!")
+
+    # tidy-up
+    cap.release(); cv2.destroyAllWindows()
+    tracker.close(); ser.close()
 
 if __name__ == "__main__":
     main()
-

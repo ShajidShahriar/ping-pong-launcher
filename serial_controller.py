@@ -1,52 +1,53 @@
-# serial_controller.py
+"""
+serial_controller.py
+====================
 
+Tiny wrapper around pySerial that lets the rest of the code talk to an
+Arduino (or just print to stdout when mock=True).
+"""
+
+from __future__ import annotations
 import serial
-import serial.tools.list_ports
 import time
-import logging
 
 
 class SerialController:
-    def __init__(self, port: str, baudrate: int = 9600, timeout: float = 1.0, mock=False):
-        self.mock = mock
-        self.port = port
-        self.baudrate = baudrate
-        self.timeout = timeout
-        self.conn = None
-        self.logger = logging.getLogger(self.__class__.__name__)
+    def __init__(self, port: str, baud: int = 9600, *, mock: bool = False) -> None:
+        self.port  = port
+        self.baud  = baud
+        self.mock  = mock
+        self._ser  = None
 
-    def connect(self):
+    # ------------------------------------------------------------------
+    # Basic life-cycle helpers
+    # ------------------------------------------------------------------
+    def connect(self) -> None:
         if self.mock:
-            self.logger.info("Mock serial: no hardware connection")
-            return True
-        try:
-            self.conn = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
-            time.sleep(2)
-            self.logger.info(f"Connected to Arduino on {self.port}")
-            return True
-        except Exception as e:
-            self.logger.error(f"Failed to connect to {self.port}: {e}")
-            return False
-
-    def write(self, msg: str):
-        if self.mock:
-            self.logger.debug(f"Mock write: {msg.strip()}")
+            print("[Serial] Running in MOCK mode -> nothing will be sent.")
             return
-        if self.conn and self.conn.is_open:
-            self.conn.write(msg.encode())
-            self.logger.debug(f"Wrote to serial: {msg.strip()}")
+        try:
+            self._ser = serial.Serial(self.port, self.baud, timeout=1)
+            time.sleep(2)  # let the Arduino reset
+            print(f"[Serial] Connected to {self.port} @ {self.baud} baud.")
+        except Exception as exc:
+            print(f"[Serial] ERROR: {exc}")
 
-    def readline(self) -> str:
+    def close(self) -> None:
+        if self._ser and self._ser.is_open:
+            self._ser.close()
+            print("[Serial] Port closed.")
+
+    # ------------------------------------------------------------------
+    # Convenience writers
+    # ------------------------------------------------------------------
+    def write_angle(self, angle: int) -> None:
+        """Send a vertical-servo angle as 'A,<angle>\\n'."""
+        self.write_raw(f"A,{angle}\n")
+
+    def write_raw(self, msg: str) -> None:
+        """Send any pre-formatted string down the wire."""
         if self.mock:
-            return "OK"
-        if self.conn:
-            resp = self.conn.readline().decode().strip()
-            self.logger.debug(f"Read from serial: {resp}")
-            return resp
-        return ""
-
-    def close(self):
-        if self.conn and self.conn.is_open:
-            self.conn.close()
-            self.logger.info("Serial port closed")
-
+            print(f"[Serial] MOCK -> {msg.strip()}")
+            return
+        if self._ser and self._ser.is_open:
+            self._ser.write(msg.encode())
