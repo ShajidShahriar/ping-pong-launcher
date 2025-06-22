@@ -34,6 +34,17 @@ class LauncherGUI:
         mock_serial: bool = True,
         cam_index: int | None = 1,          # None → auto-detect
     ) -> None:
+        """Initialize the interface.
+
+        Parameters
+        ----------
+        port:
+            Serial port for the Arduino.
+        mock_serial:
+            If ``True`` use a mock serial connection.
+        cam_index:
+            Webcam index or ``None`` to auto-detect.
+        """
         # -------- tkinter window --------
         self.root = tk.Tk()
         self.root.title("Ping-Pong Launcher")
