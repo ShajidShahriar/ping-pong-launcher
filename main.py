@@ -1,6 +1,5 @@
 """
 main.py
-=======
 
 q         : quit
 m         : toggle aim FOLLOW/RANDOM
@@ -10,7 +9,7 @@ t / b / f : topspin / backspin / flat shot presets  [only with --spin]
 Run without flags for plain tracking + servo.
 Add --spin to enable wheel controls.
 Use --gui  to start the Tkinter interface instead of the CLI demo.
-Use --port to specify the Arduino serial port.
+Use --port to specify the Arduino serial port (auto-detected if omitted).
 Use --[no-]mock to enable or disable mock serial mode.
 """
 
@@ -22,7 +21,7 @@ from pose_tracker import PoseTracker
 from servo_aim import ServoAimer, Mode
 from serial_controller import SerialController
 from gate_controller import GateController
-from utils import pad_square, find_camera_index
+from utils import pad_square, find_camera_index, find_serial_port
 from collections import deque
 
 # ------------------------------------------------ Argument flag
@@ -39,8 +38,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--port",
-    default="COM5",
-    help="serial port for the Arduino",
+    help="Arduino serial port; auto-detect if omitted",
 )
 parser.add_argument(
     "--mock",
@@ -53,17 +51,18 @@ args = parser.parse_args()
 # ------------------------------------------------ Config
 WEBCAM_INDEX = find_camera_index() or 0
 FRAME_W, FRAME_H, FPS = 640, 480, 30
+ARDUINO_PORT = args.port or find_serial_port() or "COM5"
 WINDOW_NAME  = "Ping-Pong Servo Aimer"
 
 # ------------------------------------------------ Main
 def main() -> None:
     if args.gui:
         from launcher_gui import LauncherGUI
-        gui = LauncherGUI(port=args.port, mock_serial=args.mock)
+        gui = LauncherGUI(port=ARDUINO_PORT, mock_serial=args.mock)
         gui.run()
         return
 
-    ser = SerialController(args.port, mock=args.mock)
+    ser = SerialController(ARDUINO_PORT, mock=args.mock)
     ser.connect()
 
     # optional wheel controller
