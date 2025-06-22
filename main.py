@@ -9,6 +9,7 @@ t / b / f : topspin / backspin / flat shot presets  [only with --spin]
 
 Run without flags for plain tracking + servo.
 Add --spin to enable wheel controls.
+Use --gui  to start the Tkinter interface instead of the CLI demo.
 """
 
 from __future__ import annotations
@@ -24,8 +25,16 @@ from collections import deque
 
 # ------------------------------------------------ Argument flag
 parser = argparse.ArgumentParser()
-parser.add_argument("--spin", action="store_true",
-                    help="enable dual-wheel spin control (top/back/flat)")
+parser.add_argument(
+    "--spin",
+    action="store_true",
+    help="enable dual-wheel spin control (top/back/flat)",
+)
+parser.add_argument(
+    "--gui",
+    action="store_true",
+    help="launch the Tkinter GUI",
+)
 args = parser.parse_args()
 
 # ------------------------------------------------ Config
@@ -37,6 +46,12 @@ WINDOW_NAME  = "Ping-Pong Servo Aimer"
 
 # ------------------------------------------------ Main
 def main() -> None:
+    if args.gui:
+        from launcher_gui import LauncherGUI
+        gui = LauncherGUI(port=ARDUINO_PORT, mock_serial=MOCK_SERIAL)
+        gui.run()
+        return
+
     ser = SerialController(ARDUINO_PORT, mock=MOCK_SERIAL)
     ser.connect()
 
