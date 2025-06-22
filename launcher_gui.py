@@ -108,7 +108,7 @@ class LauncherGUI:
     # Main processing loop
     # ------------------------------------------------------------------
     def _loop(self) -> None:
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(1)
         if not self.cap.isOpened():
             print("[GUI] Cannot open camera.")
             self.running = False
