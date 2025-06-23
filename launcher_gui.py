@@ -88,8 +88,11 @@ class LauncherGUI:
         frame.grid(row=0, column=0, sticky="nsew")
 
         # --- start / stop ------------------------------------------------
-        ttk.Button(frame, text="Start", command=self.start).grid(row=0, column=0, padx=5, pady=5)
-        ttk.Button(frame, text="Stop",  command=self.stop ).grid(row=0, column=1, padx=5, pady=5)
+        self.start_btn = ttk.Button(frame, text="Start", command=self.start)
+        self.start_btn.grid(row=0, column=0, padx=5, pady=5)
+        self.stop_btn = ttk.Button(frame, text="Stop", command=self.stop)
+        self.stop_btn.grid(row=0, column=1, padx=5, pady=5)
+        self.stop_btn.state(["disabled"])
         ttk.Label(frame, textvariable=self.angle_var).grid(row=0, column=2, padx=5)
 
         # --- aim mode ----------------------------------------------------
@@ -147,11 +150,15 @@ class LauncherGUI:
         if self.running:
             return
         self.running = True
+        self.start_btn.state(["disabled"])
+        self.stop_btn.state(["!disabled"])
         self.loop_thread = threading.Thread(target=self._loop, daemon=True)
         self.loop_thread.start()
 
     def stop(self) -> None:
         self.running = False
+        self.start_btn.state(["!disabled"])
+        self.stop_btn.state(["disabled"])
         if self.loop_thread:
             self.loop_thread.join(timeout=1.0)
             self.loop_thread = None
