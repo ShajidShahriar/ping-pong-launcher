@@ -153,7 +153,8 @@ class LauncherGUI:
     def stop(self) -> None:
         self.running = False
         if self.loop_thread:
-            self.loop_thread.join(timeout=1.0)
+            if threading.current_thread() is not self.loop_thread:
+                self.loop_thread.join(timeout=1.0)
             self.loop_thread = None
 
     def _on_close(self) -> None:
@@ -202,7 +203,7 @@ class LauncherGUI:
 
             cv2.imshow("Launcher", annotated)
             if cv2.waitKey(1) == 27:          # ESC closes
-                self.stop()
+                self.running = False
                 break
 
             # ------- timed launch routine ---------------------------
@@ -217,6 +218,8 @@ class LauncherGUI:
         if self.cap:
             self.cap.release()
         cv2.destroyAllWindows()
+        # mark thread as finished
+        self.loop_thread = None
 
     # ------------------------------------------------------------------
     def run(self) -> None:
