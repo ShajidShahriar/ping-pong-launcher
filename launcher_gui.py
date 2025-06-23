@@ -1,5 +1,5 @@
 """
-Simple Tkinter GUI for the ping-pong launcher.
+Simple Tkinter GUI for the ping‑pong launcher.
 
 Start  → begin pose tracking / angle streaming  
 Stop   → halt video thread and release the webcam  
@@ -15,6 +15,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import cv2
+from PIL import Image, ImageTk
 
 from pose_tracker import PoseTracker
 from servo_aim import ServoAimer, Mode
@@ -25,21 +26,34 @@ from utils import pad_square, find_camera_index
 
 
 class LauncherGUI:
-    """Tk-based graphical interface for the launcher."""
+    """Tk‑based graphical interface for the launcher."""
 
     def __init__(
         self,
         *,
         port: str = "COM5",
         mock_serial: bool = True,
-        cam_index: int | None = 1,          # None → auto-detect
+        cam_index: int | None = 1,          # None → auto‑detect
     ) -> None:
+        """Initialize the interface.
+
+        Parameters
+        ----------
+        port:
+            Serial port for the Arduino.
+        mock_serial:
+            If ``True`` use a mock serial connection.
+        cam_index:
+            Webcam index or ``None`` to auto‑detect.
+        """
         # -------- tkinter window --------
         self.root = tk.Tk()
-        self.root.title("Ping-Pong Launcher")
+        self.root.title("Ping‑Pong Launcher")
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        # -------- back-end objects ------
+        # -------- back‑end objects ------
+        if port is None:
+            port = find_serial_port() or "COM5"
         self.serial = SerialController(port, mock=mock_serial)
         self.serial.connect()
 
@@ -53,15 +67,16 @@ class LauncherGUI:
         self.cap: cv2.VideoCapture | None = None
         self.running   = False
         self.loop_thread: threading.Thread | None = None
+        self.frame_image: ImageTk.PhotoImage | None = None  # updated each loop
 
-        # -------- user-tunable params ---
+        # -------- user‑tunable params ---
         self.upper_pwm       = tk.IntVar(value=140)
         self.lower_pwm       = tk.IntVar(value=140)
         self.launch_on_time  = tk.DoubleVar(value=0.3)
         self.launch_off_time = tk.DoubleVar(value=2.0)
 
         # UI feedback vars
-        self.mode_var  = tk.StringVar(value=self.aimer.mode)
+        self.mode_var  = tk.StringVar(value=str(self.aimer.mode))
         self.spin_var  = tk.StringVar(value=self.wheels._preset.name)
         self.angle_var = tk.IntVar(value=0)
 
@@ -75,8 +90,11 @@ class LauncherGUI:
         frame.grid(row=0, column=0, sticky="nsew")
 
         # --- start / stop ------------------------------------------------
-        ttk.Button(frame, text="Start", command=self.start).grid(row=0, column=0, padx=5, pady=5)
-        ttk.Button(frame, text="Stop",  command=self.stop ).grid(row=0, column=1, padx=5, pady=5)
+        self.start_btn = ttk.Button(frame, text="Start", command=self.start)
+        self.start_btn.grid(row=0, column=0, padx=5, pady=5)
+        self.stop_btn = ttk.Button(frame, text="Stop", command=self.stop)
+        self.stop_btn.grid(row=0, column=1, padx=5, pady=5)
+        self.stop_btn.state(["disabled"])
         ttk.Label(frame, textvariable=self.angle_var).grid(row=0, column=2, padx=5)
 
         # --- aim mode ----------------------------------------------------
@@ -111,15 +129,19 @@ class LauncherGUI:
         ttk.Spinbox(frame, from_=0.1, to=5.0, increment=0.1,
                     textvariable=self.launch_off_time, width=5).grid(row=6, column=1)
 
+        # --- video preview -----------------------------------------------
+        self.video_label = ttk.Label(frame)
+        self.video_label.grid(row=7, column=0, columnspan=4, pady=10)
+
     # ------------------------------------------------------------------
     # Button callbacks
     # ------------------------------------------------------------------
     def _update_pwms(self) -> None:
         self.wheels.set_base_pwms(self.upper_pwm.get(), self.lower_pwm.get())
 
-    def _set_mode(self, mode: str) -> None:
+    def _set_mode(self, mode: Mode) -> None:
         self.aimer.set_mode(mode)
-        self.mode_var.set(mode)
+        self.mode_var.set(str(mode))
         print(f"[GUI] Mode -> {mode}")
 
     def _set_spin(self, preset: str) -> None:
@@ -134,12 +156,16 @@ class LauncherGUI:
         if self.running:
             return
         self.running = True
+        self.start_btn.state(["disabled"])
+        self.stop_btn.state(["!disabled"])
         self.loop_thread = threading.Thread(target=self._loop, daemon=True)
         self.loop_thread.start()
 
     def stop(self) -> None:
         self.running = False
-        if self.loop_thread:
+        self.start_btn.state(["!disabled"])
+        self.stop_btn.state(["disabled"])
+        if self.loop_thread and threading.current_thread() is not self.loop_thread:
             self.loop_thread.join(timeout=1.0)
             self.loop_thread = None
 
@@ -148,7 +174,7 @@ class LauncherGUI:
         self.root.destroy()
 
     # ------------------------------------------------------------------
-    # Video / pose loop
+    # Video / pose loop (runs in background thread)
     # ------------------------------------------------------------------
     def _loop(self) -> None:
         # camera selection
@@ -171,13 +197,17 @@ class LauncherGUI:
             waist_xy, annotated = self.tracker.process(frame)
 
             # ------- aim + arrow ------------------------------------
-            angle = self.aimer.update(waist_xy[0] if waist_xy else None,
-                                      annotated.shape[1])
+            angle = self.aimer.update(
+                waist_xy[0] if waist_xy else None,
+                annotated.shape[1],
+            )
             self.serial.write_angle(angle)
             self.angle_var.set(angle)
-            self.aimer.draw_arrow(annotated,
-                                  annotated.shape[1] // 2,
-                                  annotated.shape[0] - 40)
+            self.aimer.draw_arrow(
+                annotated,
+                annotated.shape[1] // 2,
+                annotated.shape[0] - 40,
+            )
 
             # HUD overlays
             cv2.putText(annotated, f"Mode:{self.aimer.mode}", (10, 25),
@@ -187,10 +217,12 @@ class LauncherGUI:
             cv2.putText(annotated, f"Ang:{angle}", (10, 75),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
 
-            cv2.imshow("Launcher", annotated)
-            if cv2.waitKey(1) == 27:          # ESC closes
-                self.stop()
-                break
+            # Convert frame for Tkinter display
+            rgb      = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+            img_pil  = Image.fromarray(rgb)
+            photo    = ImageTk.PhotoImage(image=img_pil)
+            self.frame_image = photo  # prevent garbage collection
+            self.video_label.after(0, self.video_label.configure, {"image": photo})
 
             # ------- timed launch routine ---------------------------
             now = time.time()
@@ -201,18 +233,28 @@ class LauncherGUI:
                 self.gate.close()
                 last_launch = time.time()
 
+        # Cleanup ----------------------------------------------------
         if self.cap:
             self.cap.release()
         cv2.destroyAllWindows()
+        self.loop_thread = None
 
     # ------------------------------------------------------------------
     def run(self) -> None:
+        """Start the Tkinter main‑loop."""
         self.root.mainloop()
 
 
-# Convenience entry-point
+# Convenience entry‑point
+
 def main() -> None:
-    LauncherGUI().run()
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", help="Arduino serial port; auto‑detect if omitted")
+    args = parser.parse_args()
+
+    LauncherGUI(port=args.port).run()
 
 
 if __name__ == "__main__":
