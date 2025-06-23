@@ -34,7 +34,7 @@ class LauncherGUI:
         *,
         port: str = "COM5",
         mock_serial: bool = True,
-        cam_index: int | None = 1,          # None → auto‑detect
+        cam_index: int | None = None,       # None → auto‑detect
     ) -> None:
         """Initialize the interface.
 
@@ -46,7 +46,7 @@ class LauncherGUI:
             If ``True`` use a mock serial connection. This can also be
             toggled later from the GUI.
         cam_index:
-            Webcam index or ``None`` to auto‑detect.
+            Webcam index or ``None`` to auto‑detect. Defaults to ``None``.
         """
         # -------- tkinter window --------
         self.root = tk.Tk()
