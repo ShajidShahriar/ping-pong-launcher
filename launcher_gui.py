@@ -22,7 +22,8 @@ from servo_aim import ServoAimer, Mode
 from serial_controller import SerialController
 from gate_controller import GateController
 from wheel_controller import WheelController
-from utils import pad_square, find_camera_index
+from utils import pad_square, find_camera_index, find_serial_port
+
 
 
 class LauncherGUI:
