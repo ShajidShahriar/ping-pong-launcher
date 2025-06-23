@@ -15,6 +15,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import cv2
+from PIL import Image, ImageTk
 
 from pose_tracker import PoseTracker
 from servo_aim import ServoAimer, Mode
@@ -66,6 +67,7 @@ class LauncherGUI:
         self.cap: cv2.VideoCapture | None = None
         self.running   = False
         self.loop_thread: threading.Thread | None = None
+        self.frame_image: ImageTk.PhotoImage | None = None
 
         # -------- user-tunable params ---
         self.upper_pwm       = tk.IntVar(value=140)
@@ -123,6 +125,10 @@ class LauncherGUI:
         ttk.Label(frame, text="Gate off time (s)").grid(row=6, column=0, sticky="e")
         ttk.Spinbox(frame, from_=0.1, to=5.0, increment=0.1,
                     textvariable=self.launch_off_time, width=5).grid(row=6, column=1)
+
+        # --- video preview -----------------------------------------------
+        self.video_label = ttk.Label(frame)
+        self.video_label.grid(row=7, column=0, columnspan=4, pady=10)
 
     # ------------------------------------------------------------------
     # Button callbacks
@@ -200,10 +206,12 @@ class LauncherGUI:
             cv2.putText(annotated, f"Ang:{angle}", (10, 75),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
 
-            cv2.imshow("Launcher", annotated)
-            if cv2.waitKey(1) == 27:          # ESC closes
-                self.stop()
-                break
+            # Convert frame for Tkinter display
+            rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+            img_pil = Image.fromarray(rgb)
+            photo = ImageTk.PhotoImage(image=img_pil)
+            self.frame_image = photo  # prevent garbage collection
+            self.video_label.after(0, self.video_label.configure, {"image": photo})
 
             # ------- timed launch routine ---------------------------
             now = time.time()
@@ -216,7 +224,6 @@ class LauncherGUI:
 
         if self.cap:
             self.cap.release()
-        cv2.destroyAllWindows()
 
     # ------------------------------------------------------------------
     def run(self) -> None:
