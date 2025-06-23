@@ -15,7 +15,6 @@ import tkinter as tk
 from tkinter import ttk
 
 import cv2
-from PIL import Image, ImageTk
 
 from pose_tracker import PoseTracker
 from servo_aim import ServoAimer, Mode
@@ -69,7 +68,6 @@ class LauncherGUI:
         self.cap: cv2.VideoCapture | None = None
         self.running   = False
         self.loop_thread: threading.Thread | None = None
-        self.frame_image: ImageTk.PhotoImage | None = None  # updated each loop
 
         # -------- user‑tunable params ---
         self.upper_pwm       = tk.IntVar(value=140)
@@ -132,17 +130,13 @@ class LauncherGUI:
         ttk.Spinbox(frame, from_=0.1, to=5.0, increment=0.1,
                     textvariable=self.launch_off_time, width=5).grid(row=6, column=1)
 
-        # --- video preview -----------------------------------------------
-        self.video_label = ttk.Label(frame)
-        self.video_label.grid(row=7, column=0, columnspan=4, pady=10)
-
         # --- serial mode toggle -------------------------------------------
         ttk.Checkbutton(
             frame,
             text="Mock Serial",
             variable=self.mock_var,
             command=self._toggle_mock,
-        ).grid(row=8, column=0, columnspan=2, sticky="w")
+        ).grid(row=7, column=0, columnspan=2, sticky="w")
 
     # ------------------------------------------------------------------
     # Button callbacks
@@ -204,6 +198,9 @@ class LauncherGUI:
             return
         print(f"[GUI] Using camera {cam}")
 
+        window_name = "Launcher Preview"
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+
         last_launch = time.time()
 
         while self.running:
@@ -235,12 +232,8 @@ class LauncherGUI:
             cv2.putText(annotated, f"Ang:{angle}", (10, 75),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
 
-            # Convert frame for Tkinter display
-            rgb      = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
-            img_pil  = Image.fromarray(rgb)
-            photo    = ImageTk.PhotoImage(image=img_pil)
-            self.frame_image = photo  # prevent garbage collection
-            self.video_label.after(0, self.video_label.configure, {"image": photo})
+            cv2.imshow(window_name, annotated)
+            cv2.waitKey(1)
 
             # ------- timed launch routine ---------------------------
             now = time.time()
@@ -254,7 +247,7 @@ class LauncherGUI:
         # Cleanup ----------------------------------------------------
         if self.cap:
             self.cap.release()
-        cv2.destroyAllWindows()
+        cv2.destroyWindow(window_name)
         self.loop_thread = None
 
     # ------------------------------------------------------------------
