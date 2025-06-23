@@ -21,7 +21,7 @@ from servo_aim import ServoAimer, Mode
 from serial_controller import SerialController
 from gate_controller import GateController
 from wheel_controller import WheelController
-from utils import pad_square, find_camera_index, find_serial_port
+from utils import pad_square, find_camera_index
 
 
 class LauncherGUI:
@@ -30,29 +30,16 @@ class LauncherGUI:
     def __init__(
         self,
         *,
-        port: str | None = None,
+        port: str = "COM5",
         mock_serial: bool = True,
         cam_index: int | None = 1,          # None → auto-detect
     ) -> None:
-        """Initialize the interface.
-
-        Parameters
-        ----------
-        port:
-            Serial port for the Arduino.
-        mock_serial:
-            If ``True`` use a mock serial connection.
-        cam_index:
-            Webcam index or ``None`` to auto-detect.
-        """
         # -------- tkinter window --------
         self.root = tk.Tk()
         self.root.title("Ping-Pong Launcher")
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
         # -------- back-end objects ------
-        if port is None:
-            port = find_serial_port() or "COM5"
         self.serial = SerialController(port, mock=mock_serial)
         self.serial.connect()
 
@@ -225,16 +212,7 @@ class LauncherGUI:
 
 # Convenience entry-point
 def main() -> None:
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--port",
-        help="Arduino serial port; auto-detect if omitted",
-    )
-    args = parser.parse_args()
-
-    LauncherGUI(port=args.port).run()
+    LauncherGUI().run()
 
 
 if __name__ == "__main__":
