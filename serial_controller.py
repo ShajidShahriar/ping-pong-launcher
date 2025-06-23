@@ -37,6 +37,18 @@ class SerialController:
             self._ser.close()
             print("[Serial] Port closed.")
 
+    def set_mock(self, mock: bool) -> None:
+        """Switch between mock mode and real serial connection."""
+        if self.mock == mock:
+            return
+        # always close any existing connection before switching
+        self.close()
+        self.mock = mock
+        if not mock:
+            self.connect()
+        else:
+            print("[Serial] Running in MOCK mode -> nothing will be sent.")
+
     # ------------------------------------------------------------------
     # Convenience writers
     # ------------------------------------------------------------------
