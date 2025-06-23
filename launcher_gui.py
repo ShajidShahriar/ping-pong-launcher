@@ -43,7 +43,8 @@ class LauncherGUI:
         port:
             Serial port for the Arduino.
         mock_serial:
-            If ``True`` use a mock serial connection.
+            If ``True`` use a mock serial connection. This can also be
+            toggled later from the GUI.
         cam_index:
             Webcam index or ``None`` to auto‑detect.
         """
@@ -80,6 +81,7 @@ class LauncherGUI:
         self.mode_var  = tk.StringVar(value=str(self.aimer.mode))
         self.spin_var  = tk.StringVar(value=self.wheels._preset.name)
         self.angle_var = tk.IntVar(value=0)
+        self.mock_var  = tk.BooleanVar(value=mock_serial)
 
         self._build_widgets()
 
@@ -134,6 +136,14 @@ class LauncherGUI:
         self.video_label = ttk.Label(frame)
         self.video_label.grid(row=7, column=0, columnspan=4, pady=10)
 
+        # --- serial mode toggle -------------------------------------------
+        ttk.Checkbutton(
+            frame,
+            text="Mock Serial",
+            variable=self.mock_var,
+            command=self._toggle_mock,
+        ).grid(row=8, column=0, columnspan=2, sticky="w")
+
     # ------------------------------------------------------------------
     # Button callbacks
     # ------------------------------------------------------------------
@@ -149,6 +159,13 @@ class LauncherGUI:
         self.wheels.set_spin(preset)
         self.spin_var.set(preset)
         print(f"[GUI] Spin -> {preset.upper()}")
+
+    def _toggle_mock(self) -> None:
+        """Callback to switch between mock and real serial mode."""
+        use_mock = self.mock_var.get()
+        self.serial.set_mock(use_mock)
+        state = "MOCK" if use_mock else "REAL"
+        print(f"[GUI] Serial mode -> {state}")
 
     # ------------------------------------------------------------------
     # Lifecycle controls
