@@ -83,3 +83,4 @@ class ServoAimer:
         end = calculate_servo_point(base_x, base_y, self.current_angle, length)
         cv2.arrowedLine(img, (base_x, base_y), end, (0, 255, 0), 5)
         cv2.circle(img, (base_x, base_y), 8, (255, 0, 0), -1)
+
