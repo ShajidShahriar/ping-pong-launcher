@@ -54,7 +54,7 @@ class LauncherGUI:
 
         # -------- back‑end objects ------
         if port is None:
-            port = find_serial_port() or "COM5"
+            port = find_serial_port() or "COM7"
         self.serial = SerialController(port, mock=mock_serial)
         self.serial.connect()
 
